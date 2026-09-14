@@ -1,10 +1,5 @@
 {
   "buildCommand": "npm install",
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "node18.x"
-    }
-  },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1.js" },
     { "src": "/(.*)", "dest": "/public/$1" }
