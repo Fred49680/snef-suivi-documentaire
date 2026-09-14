@@ -12,12 +12,14 @@ router.get('/', async (req, res) => {
       .single();
 
     if (error) {
-      return res.status(404).json({ error: 'Projet non trouvé' });
+      console.error('Erreur Supabase:', error);
+      return res.status(404).json({ error: 'Projet non trouvé', details: error.message });
     }
 
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Erreur serveur:', err);
+    res.status(500).json({ error: err.message, stack: process.env.NODE_ENV === 'production' ? undefined : err.stack });
   }
 });
 
