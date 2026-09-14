@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNEF – Suivi Documentaire</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; padding: 0; }
+
+  header {
+    background: #003B71;
+    color: #fff;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .logo { font-size: 18px; font-weight: 700; flex: 1; }
+
+  .selector-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  select {
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 200px;
+  }
+
+  button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background: #E8500A;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  button:hover { background: #c94008; }
+
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #003B71;
+    margin-bottom: 16px;
+  }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .kpi {
+    background: #fff;
+    border-left: 4px solid #003B71;
+    padding: 16px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .kpi-label { font-size: 11px; color: #666; text-transform: uppercase; }
+  .kpi-value { font-size: 24px; font-weight: 700; color: #003B71; margin-top: 4px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead {
+    background: #003B71;
+    color: #fff;
+  }
+
+  th, td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e5e5e5;
+  }
+
+  tbody tr:hover { background: #f9f9f9; }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  select {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .tab-nav {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e5e5e5;
+  }
+
+  .tab-btn {
+    padding: 12px 20px;
+    background: transparent;
+    color: #666;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-weight: 600;
+    margin-bottom: -2px;
+  }
+
+  .tab-btn.active {
+    color: #003B71;
+    border-bottom-color: #E8500A;
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #003B71;
+    color: #fff;
+    padding: 12px 16px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    animation: slideIn 0.3s;
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">📄 SNEF Suivi Documentaire</div>
+  <div class="selector-group">
+    <label style="font-weight: 600; font-size: 13px;">📁 Affaire :</label>
+    <select id="affaireSelector" onchange="switchProject(this.value)">
+      <option value="">-- Sélectionner --</option>
+    </select>
+    <button onclick="createNewAffaire()">➕ Nouvelle</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main>
+  <!-- TABS -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="showTab('dashboard')">📊 Tableau de bord</button>
+    <button class="tab-btn" onclick="showTab('documents')">📄 Documents</button>
+    <button class="tab-btn" onclick="showTab('observations')">📋 Observations</button>
+    <button class="tab-btn" onclick="showTab('questions')">❓ Questions</button>
+    <button class="tab-btn" onclick="showTab('settings')">⚙️ Paramètres</button>
+  </div>
+
+  <!-- TAB: DASHBOARD -->
+  <div id="tab-dashboard" class="tab-content active">
+    <div class="kpi-row" id="kpiRow"></div>
+
+    <div class="card">
+      <div class="card-title">📋 Synthèse des documents</div>
+      <div style="overflow-x: auto;">
+        <table id="summaryTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Titre</th>
+              <th>Indice</th>
+              <th>Phase</th>
+              <th>H. prévues</th>
+              <th>H. réelles</th>
+              <th>Avancement</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: DOCUMENTS -->
+  <div id="tab-documents" class="tab-content">
+    <div style="margin-bottom: 16px;">
+      <button onclick="openAddDocModal()">➕ Nouveau document</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Gestion des documents</div>
+      <div style="overflow-x: auto;">
+        <table id="docsTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Titre</th>
+              <th>Indice</th>
+              <th>Phase</th>
+              <th>H. prévues</th>
+              <th>H. réelles</th>
+              <th>Avancement</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="docsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: OBSERVATIONS -->
+  <div id="tab-observations" class="tab-content">
+    <div style="margin-bottom: 16px;">
+      <button onclick="openAddObsModal()">➕ Nouvelle observation</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Observations client</div>
+      <div style="overflow-x: auto;">
+        <table id="obsTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Description</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="obsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: QUESTIONS -->
+  <div id="tab-questions" class="tab-content">
+    <div style="margin-bottom: 16px;">
+      <button onclick="openAddQRModal()">➕ Nouvelle question</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Questions / Réponses</div>
+      <div style="overflow-x: auto;">
+        <table id="qrTable">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Site</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="qrBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: SETTINGS -->
+  <div id="tab-settings" class="tab-content">
+    <div class="card">
+      <div class="card-title">⚙️ Paramètres de l'affaire</div>
+      <form onsubmit="saveSettings(event); return false;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div>
+            <label>Nom</label><br>
+            <input type="text" id="projName" style="width: 100%; margin-top: 4px;">
+          </div>
+          <div>
+            <label>Référence</label><br>
+            <input type="text" id="projRef" style="width: 100%; margin-top: 4px;">
+          </div>
+          <div>
+            <label>Manager</label><br>
+            <input type="text" id="projManager" style="width: 100%; margin-top: 4px;">
+          </div>
+          <div>
+            <label>Client</label><br>
+            <input type="text" id="projClient" style="width: 100%; margin-top: 4px;">
+          </div>
+        </div>
+        <button type="submit">💾 Enregistrer</button>
+      </form>
+    </div>
+  </div>
+</main>
+
+<!-- TOAST CONTAINER -->
+<div id="toastContainer"></div>
+
+<script>
+// ============================================
+// SUPABASE INIT
+// ============================================
+const SUPABASE_URL = 'https://ybzqhzmseslfguqisscu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_tEIceW-CYvnz2SG5sIpQPQ_fVTUvBnX';
+const { createClient } = window.supabase;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentProject = null;
+let allProjects = [];
+let docs = [];
+let obs = [];
+let qr = [];
+
+// ============================================
+// INIT
+// ============================================
+async function init() {
+  console.log('🚀 Initialisation...');
+  await loadAllProjects();
+  if (currentProject) {
+    await refreshData();
+  }
+}
+
+async function loadAllProjects() {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('name');
+
+    if (error) throw error;
+
+    allProjects = data || [];
+
+    // Créer un projet par défaut s'il n'y en a pas
+    if (allProjects.length === 0) {
+      const newProj = {
+        id: 'proj_' + Date.now(),
+        name: 'Nouveau Projet Nucléaire',
+        ref: '',
+        account_number: '',
+        manager: '',
+        client_name: ''
+      };
+
+      const { error: insertError } = await supabase.from('projects').insert([newProj]);
+      if (!insertError) {
+        allProjects = [newProj];
+        currentProject = newProj;
+      }
+    } else {
+      currentProject = allProjects[0];
+    }
+
+    updateSelector();
+  } catch (err) {
+    console.error('Erreur:', err);
+    showToast('❌ Erreur connexion');
+  }
+}
+
+function updateSelector() {
+  const sel = document.getElementById('affaireSelector');
+  if (!sel) return;
+
+  sel.innerHTML = allProjects
+    .map(p => `<option value="${p.id}" ${currentProject?.id === p.id ? 'selected' : ''}>${p.name}</option>`)
+    .join('');
+}
+
+async function switchProject(projectId) {
+  if (!projectId) return;
+  const proj = allProjects.find(p => p.id === projectId);
+  if (proj) {
+    currentProject = proj;
+    await refreshData();
+    showToast('✅ ' + proj.name);
+  }
+}
+
+async function createNewAffaire() {
+  const name = prompt('📁 Nom de la nouvelle affaire :');
+  if (!name) return;
+
+  try {
+    const newProj = {
+      id: 'proj_' + Date.now(),
+      name: name,
+      ref: '',
+      account_number: '',
+      manager: '',
+      client_name: ''
+    };
+
+    const { error } = await supabase.from('projects').insert([newProj]);
+    if (error) throw error;
+
+    allProjects.push(newProj);
+    currentProject = newProj;
+    updateSelector();
+    await refreshData();
+    showToast('✅ Affaire créée');
+  } catch (err) {
+    console.error('Erreur:', err);
+    showToast('❌ Erreur');
+  }
+}
+
+// ============================================
+// DATA MANAGEMENT
+// ============================================
+async function refreshData() {
+  if (!currentProject) return;
+
+  try {
+    const [docsRes, obsRes, qrRes] = await Promise.all([
+      supabase.from('documents').select('*').eq('project_id', currentProject.id),
+      supabase.from('observations').select('*').eq('project_id', currentProject.id),
+      supabase.from('questions').select('*').eq('project_id', currentProject.id)
+    ]);
+
+    docs = docsRes.data || [];
+    obs = obsRes.data || [];
+    qr = qrRes.data || [];
+
+    renderAll();
+  } catch (err) {
+    console.error('Erreur refresh:', err);
+  }
+}
+
+function renderAll() {
+  renderDashboard();
+  renderDocs();
+  renderObs();
+  renderQR();
+  loadSettings();
+}
+
+function renderDashboard() {
+  const completed = docs.filter(d => d.avancement === 100).length;
+  const kpiRow = document.getElementById('kpiRow');
+  if (kpiRow) {
+    kpiRow.innerHTML = `
+      <div class="kpi"><div class="kpi-label">Total docs</div><div class="kpi-value">${docs.length}</div></div>
+      <div class="kpi"><div class="kpi-label">Complétés</div><div class="kpi-value">${completed}</div></div>
+      <div class="kpi"><div class="kpi-label">H. prévues</div><div class="kpi-value">${docs.reduce((s, d) => s + (d.heures_prevues || 0), 0).toFixed(1)}h</div></div>
+      <div class="kpi"><div class="kpi-label">Observations</div><div class="kpi-value">${obs.length}</div></div>
+    `;
+  }
+
+  const tbody = document.getElementById('summaryBody');
+  if (tbody) {
+    tbody.innerHTML = docs.map((d, i) => `
+      <tr>
+        <td>${d.num}</td>
+        <td>${d.title}</td>
+        <td>${d.indice || '-'}</td>
+        <td>${d.phase || '-'}</td>
+        <td>${d.heures_prevues || 0}</td>
+        <td>${d.heures_bpe || 0}</td>
+        <td>${d.avancement || 0}%</td>
+        <td>${d.statut}</td>
+        <td><button onclick="deleteDoc('${d.id}')">🗑️</button></td>
+      </tr>
+    `).join('');
+  }
+}
+
+function renderDocs() {
+  const tbody = document.getElementById('docsBody');
+  if (tbody) {
+    tbody.innerHTML = docs.map(d => `
+      <tr>
+        <td><input type="text" value="${d.num}" style="width: 60px;"></td>
+        <td><input type="text" value="${d.title}" style="width: 150px;"></td>
+        <td><input type="text" value="${d.indice || ''}" style="width: 60px;"></td>
+        <td><input type="text" value="${d.phase || ''}" style="width: 60px;"></td>
+        <td><input type="number" value="${d.heures_prevues || 0}" style="width: 70px;"></td>
+        <td><input type="number" value="${d.heures_bpe || 0}" style="width: 70px;"></td>
+        <td><input type="range" min="0" max="100" value="${d.avancement || 0}" style="width: 80px;"> ${d.avancement || 0}%</td>
+        <td><select><option>notstarted</option><option selected>inprogress</option><option>completed</option></select></td>
+        <td><button onclick="deleteDoc('${d.id}')">🗑️</button></td>
+      </tr>
+    `).join('');
+  }
+}
+
+function renderObs() {
+  const tbody = document.getElementById('obsBody');
+  if (tbody) {
+    tbody.innerHTML = obs.map(o => `
+      <tr>
+        <td>${o.num || ''}</td>
+        <td>${o.description || ''}</td>
+        <td>${o.status || 'open'}</td>
+        <td><button onclick="deleteObs('${o.id}')">🗑️</button></td>
+      </tr>
+    `).join('');
+  }
+}
+
+function renderQR() {
+  const tbody = document.getElementById('qrBody');
+  if (tbody) {
+    tbody.innerHTML = qr.map(q => `
+      <tr>
+        <td>${q.num || ''}</td>
+        <td>${q.site || ''}</td>
+        <td>${q.status || 'open'}</td>
+        <td><button onclick="deleteQR('${q.id}')">🗑️</button></td>
+      </tr>
+    `).join('');
+  }
+}
+
+// ============================================
+// CRUD
+// ============================================
+async function deleteDoc(docId) {
+  if (confirm('Supprimer ?')) {
+    await supabase.from('documents').delete().eq('id', docId);
+    await refreshData();
+  }
+}
+
+async function deleteObs(obsId) {
+  if (confirm('Supprimer ?')) {
+    await supabase.from('observations').delete().eq('id', obsId);
+    await refreshData();
+  }
+}
+
+async function deleteQR(qrId) {
+  if (confirm('Supprimer ?')) {
+    await supabase.from('questions').delete().eq('id', qrId);
+    await refreshData();
+  }
+}
+
+function openAddDocModal() {
+  const num = prompt('Numéro document:');
+  if (!num) return;
+  const title = prompt('Titre:');
+  if (!title) return;
+
+  addDoc(num, title);
+}
+
+function openAddObsModal() {
+  const desc = prompt('Description observation:');
+  if (!desc) return;
+  addObs(desc);
+}
+
+function openAddQRModal() {
+  const site = prompt('Site:');
+  if (!site) return;
+  addQR(site);
+}
+
+async function addDoc(num, title) {
+  const doc = {
+    id: 'doc_' + Date.now(),
+    project_id: currentProject.id,
+    num: num,
+    title: title,
+    indice: '',
+    phase: '',
+    heures_prevues: 0,
+    heures_bpo: 0,
+    heures_bpe: 0,
+    avancement: 0,
+    statut: 'notstarted'
+  };
+
+  const { error } = await supabase.from('documents').insert([doc]);
+  if (error) {
+    showToast('❌ Erreur');
+  } else {
+    showToast('✅ Document ajouté');
+    await refreshData();
+  }
+}
+
+async function addObs(desc) {
+  const o = {
+    id: 'obs_' + Date.now(),
+    project_id: currentProject.id,
+    num: '',
+    description: desc,
+    status: 'open'
+  };
+
+  const { error } = await supabase.from('observations').insert([o]);
+  if (!error) {
+    showToast('✅ Observation ajoutée');
+    await refreshData();
+  }
+}
+
+async function addQR(site) {
+  const q = {
+    id: 'q_' + Date.now(),
+    project_id: currentProject.id,
+    num: '',
+    site: site,
+    status: 'open'
+  };
+
+  const { error } = await supabase.from('questions').insert([q]);
+  if (!error) {
+    showToast('✅ Question ajoutée');
+    await refreshData();
+  }
+}
+
+async function saveSettings(e) {
+  e.preventDefault();
+  if (!currentProject) return;
+
+  const update = {
+    name: document.getElementById('projName').value,
+    ref: document.getElementById('projRef').value,
+    manager: document.getElementById('projManager').value,
+    client_name: document.getElementById('projClient').value
+  };
+
+  const { error } = await supabase.from('projects').update(update).eq('id', currentProject.id);
+  if (!error) {
+    currentProject = { ...currentProject, ...update };
+    updateSelector();
+    showToast('✅ Paramètres sauvegardés');
+  }
+}
+
+function loadSettings() {
+  if (!currentProject) return;
+  document.getElementById('projName').value = currentProject.name || '';
+  document.getElementById('projRef').value = currentProject.ref || '';
+  document.getElementById('projManager').value = currentProject.manager || '';
+  document.getElementById('projClient').value = currentProject.client_name || '';
+}
+
+// ============================================
+// UI
+// ============================================
+function showTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tabName)?.classList.add('active');
+  event.target.classList.add('active');
+}
+
+function showToast(msg) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ============================================
+// INIT
+// ============================================
+window.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
