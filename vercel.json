@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm install",
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "node18.x"
+    }
+  },
+  "public": "public"
+}

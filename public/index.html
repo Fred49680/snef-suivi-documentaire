@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SNEF – Suivi Documentaire</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>📊</text></svg>">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial; background: #F4F7FB; color: #1F2937; }
+
+    header {
+      background: #003B71;
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo { font-size: 18px; font-weight: 700; }
+    .auth-area { display: flex; gap: 12px; align-items: center; }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-primary { background: #E8500A; color: #fff; }
+    .btn-primary:hover { background: #c94008; }
+    .btn-secondary { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+    .btn-outline { background: transparent; color: #003B71; border: 1.5px solid #003B71; }
+
+    .nav-tabs { background: #fff; border-bottom: 2px solid #D1D5DB; padding: 0 24px; display: flex; gap: 0; }
+    .nav-tab { padding: 12px 20px; cursor: pointer; font-weight: 600; font-size: 13px; color: #6B7280; border-bottom: 3px solid transparent; transition: all 0.15s; }
+    .nav-tab.active { color: #003B71; border-bottom-color: #E8500A; }
+
+    main { padding: 20px; max-width: 1400px; margin: 0 auto; }
+
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+    .card-title { font-size: 15px; font-weight: 700; color: #003B71; margin-bottom: 16px; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .kpi { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 16px; border-left: 4px solid #003B71; }
+    .kpi-value { font-size: 24px; font-weight: 700; color: #003B71; }
+    .kpi-label { font-size: 11px; color: #6B7280; margin-bottom: 8px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead th { background: #003B71; color: #fff; padding: 10px; text-align: left; font-weight: 600; }
+    tbody tr { border-bottom: 1px solid #D1D5DB; }
+    tbody tr:hover { background: #F0F4FA; }
+    tbody td { padding: 10px; }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    .badge-green { background: #DCFCE7; color: #16A34A; }
+    .badge-orange { background: #FFEDD5; color: #C2410C; }
+
+    .table-wrap { overflow-x: auto; }
+    .hidden { display: none !important; }
+
+    .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .form-group label { font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase; }
+    .form-group input, .form-group select {
+      border: 1.5px solid #D1D5DB;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 500; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #fff; border-radius: 12px; padding: 28px; width: 95%; max-width: 680px; max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-size: 16px; font-weight: 700; color: #003B71; margin-bottom: 20px; }
+    .modal-close { position: absolute; top: 16px; right: 18px; background: none; border: none; font-size: 22px; cursor: pointer; color: #6B7280; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #D1D5DB; }
+
+    .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+    .toast { background: #1F2937; color: #fff; padding: 12px 18px; border-radius: 8px; font-size: 13px; animation: slideIn .25s; }
+    .toast.success { background: #16A34A; }
+    .toast.error { background: #DC2626; }
+    @keyframes slideIn { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    select { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SNEF – Suivi Documentaire</div>
+  <div class="auth-area">
+    <select id="affaireSelect" onchange="selectAffaire()">
+      <option value="">-- Sélectionner affaire --</option>
+    </select>
+    <button class="btn btn-secondary" onclick="openAddAffaireModal()">➕ Affaire</button>
+    <div id="userBadge" style="font-size:12px">👤 Utilisateur</div>
+  </div>
+</header>
+
+<div class="nav-tabs">
+  <div class="nav-tab active" onclick="showTab('dashboard')">📊 Tableau de bord</div>
+  <div class="nav-tab" onclick="showTab('documents')">📄 Documents</div>
+  <div class="nav-tab" onclick="showTab('historique')">📋 Historique</div>
+</div>
+
+<main>
+
+<div id="page-dashboard">
+  <div id="affaireInfo" class="hidden">
+    <div class="card" style="background:linear-gradient(135deg, #003B71, #E8500A); color:#fff; padding:20px">
+      <div id="affaireTitle" style="font-size:18px;font-weight:700"></div>
+      <div id="affaireDetails" style="font-size:12px;margin-top:8px;opacity:0.9"></div>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="card">
+    <div class="card-title">📋 Documents</div>
+    <div class="table-wrap">
+      <table id="docTable">
+        <thead>
+          <tr>
+            <th>N°</th>
+            <th>Titre</th>
+            <th>H. prévues</th>
+            <th>H. réelles</th>
+            <th>Avanc.</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="docTableBody"><tr><td colspan="7" style="text-align:center">Sélectionnez une affaire</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="page-documents" class="hidden">
+  <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+    <h2 style="font-size:16px;font-weight:700">📄 Documents</h2>
+    <button class="btn btn-primary" onclick="openDocModal()">➕ Nouveau</button>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table id="docEditTable">
+        <thead>
+          <tr>
+            <th>N°</th>
+            <th>Titre</th>
+            <th>H. prévues</th>
+            <th>H. réelles</th>
+            <th>Avanc.</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="docEditTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="page-historique" class="hidden">
+  <div class="card">
+    <div class="card-title">📋 Historique</div>
+    <div id="historyContent" style="max-height:600px;overflow-y:auto"></div>
+  </div>
+</div>
+
+</main>
+
+<!-- MODAL: AFFAIRE -->
+<div class="modal-overlay" id="affaireModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('affaireModal')">×</button>
+    <div class="modal-title">➕ Créer affaire</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label>Réf. affaire *</label>
+        <input type="text" id="affNum" placeholder="SNF-2024-001" />
+      </div>
+      <div class="form-group">
+        <label>Nom *</label>
+        <input type="text" id="affName" placeholder="Projet EPR2" />
+      </div>
+      <div class="form-group">
+        <label>Client</label>
+        <input type="text" id="affClient" placeholder="EDF SA" />
+      </div>
+      <div class="form-group">
+        <label>Responsable</label>
+        <input type="text" id="affManager" />
+      </div>
+      <div class="form-group">
+        <label>Date début</label>
+        <input type="date" id="affStart" />
+      </div>
+      <div class="form-group">
+        <label>Date fin</label>
+        <input type="date" id="affEnd" />
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('affaireModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="createAffaire()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DOCUMENT -->
+<div class="modal-overlay" id="docModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('docModal')">×</button>
+    <div class="modal-title">➕ Nouveau document</div>
+
+    <div class="form-group">
+      <label>N° document *</label>
+      <input type="text" id="docNum" placeholder="SNF-001" />
+    </div>
+    <div class="form-group">
+      <label>Titre *</label>
+      <input type="text" id="docTitle" placeholder="Plan électrique" />
+    </div>
+    <div class="form-group">
+      <label>Heures prévues</label>
+      <input type="number" id="docHours" placeholder="40" min="0" step="0.5" />
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('docModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDoc()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// API Base URL
+const API_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+  ? 'http://localhost:3000/api'
+  : '/api';
+
+let currentAffaire = null;
+let allAffaires = {};
+let currentDocs = {};
+
+// INIT
+window.addEventListener('load', async () => {
+  loadAffaires();
+  const name = prompt('📝 Votre nom (pour l\'historique) ?', 'Admin') || 'Admin';
+  localStorage.setItem('userName', name);
+  document.getElementById('userBadge').textContent = `👤 ${name}`;
+});
+
+// AFFAIRES
+async function loadAffaires() {
+  try {
+    const res = await fetch(`${API_URL}/affaires`);
+    allAffaires = await res.json();
+    updateAffaireSelect();
+  } catch (e) {
+    console.error('Erreur affaires:', e);
+  }
+}
+
+function updateAffaireSelect() {
+  let html = '<option value="">-- Sélectionner --</option>';
+  Object.entries(allAffaires).forEach(([id, aff]) => {
+    const affData = typeof aff === 'string' ? JSON.parse(aff) : aff;
+    html += `<option value="${affData.id}">${affData.num} - ${affData.nom}</option>`;
+  });
+  document.getElementById('affaireSelect').innerHTML = html;
+}
+
+async function selectAffaire() {
+  const id = document.getElementById('affaireSelect').value;
+  if (!id) {
+    currentAffaire = null;
+    currentDocs = {};
+    renderAll();
+    return;
+  }
+
+  currentAffaire = id;
+  const affData = typeof allAffaires[id] === 'string' ? JSON.parse(allAffaires[id]) : allAffaires[id];
+  document.getElementById('affaireInfo').classList.remove('hidden');
+  document.getElementById('affaireTitle').textContent = `📂 ${affData.nom}`;
+  document.getElementById('affaireDetails').textContent = `Réf: ${affData.num} | Client: ${affData.client} | Responsable: ${affData.manager}`;
+
+  try {
+    const res = await fetch(`${API_URL}/documents?affaireId=${id}`);
+    const docs = await res.json();
+    currentDocs = docs;
+    renderAll();
+  } catch (e) {
+    console.error('Erreur docs:', e);
+  }
+}
+
+function openAddAffaireModal() {
+  document.getElementById('affNum').value = '';
+  document.getElementById('affName').value = '';
+  document.getElementById('affClient').value = '';
+  document.getElementById('affManager').value = '';
+  document.getElementById('affStart').value = '';
+  document.getElementById('affEnd').value = '';
+  openModal('affaireModal');
+}
+
+async function createAffaire() {
+  const num = document.getElementById('affNum').value.trim();
+  const nom = document.getElementById('affName').value.trim();
+  const client = document.getElementById('affClient').value.trim();
+  const manager = document.getElementById('affManager').value.trim();
+  const start = document.getElementById('affStart').value;
+  const end = document.getElementById('affEnd').value;
+
+  if (!num || !nom) {
+    showToast('❌ Remplissez les obligatoires', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/affaires`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ num, nom, client, manager, start, end })
+    });
+
+    if (res.ok) {
+      showToast(`✅ Affaire créée`, 'success');
+      await loadAffaires();
+      closeModal('affaireModal');
+    }
+  } catch (e) {
+    showToast('❌ Erreur', 'error');
+  }
+}
+
+// DOCUMENTS
+function openDocModal() {
+  if (!currentAffaire) {
+    showToast('❌ Sélectionnez une affaire', 'error');
+    return;
+  }
+  document.getElementById('docNum').value = '';
+  document.getElementById('docTitle').value = '';
+  document.getElementById('docHours').value = '';
+  openModal('docModal');
+}
+
+async function saveDoc() {
+  const num = document.getElementById('docNum').value.trim();
+  const title = document.getElementById('docTitle').value.trim();
+  const hours = document.getElementById('docHours').value;
+
+  if (!num || !title) {
+    showToast('❌ Remplissez les obligatoires', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/documents?affaireId=${currentAffaire}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ num, title, heuresPrevues: hours })
+    });
+
+    if (res.ok) {
+      showToast(`✅ Document créé`, 'success');
+      await selectAffaire();
+      closeModal('docModal');
+    }
+  } catch (e) {
+    showToast('❌ Erreur', 'error');
+  }
+}
+
+async function updateDocProgress(docId) {
+  const progress = prompt('Avancement (0-100):', '0');
+  if (progress === null) return;
+
+  const hours = prompt('Heures réelles:', '0');
+  if (hours === null) return;
+
+  try {
+    const res = await fetch(`${API_URL}/documents?affaireId=${currentAffaire}&docId=${docId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ heuresRéelles: hours, avancement: progress, statut: 'inprogress' })
+    });
+
+    if (res.ok) {
+      showToast('✅ Maj OK', 'success');
+      await selectAffaire();
+    }
+  } catch (e) {
+    showToast('❌ Erreur', 'error');
+  }
+}
+
+// RENDER
+function showTab(tab) {
+  document.querySelectorAll('main > div').forEach(el => el.classList.add('hidden'));
+  document.getElementById(`page-${tab}`).classList.remove('hidden');
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  event.target.classList.add('active');
+  renderAll();
+}
+
+function renderAll() {
+  const currentTab = document.querySelector('.nav-tab.active').textContent;
+  if (currentTab.includes('Tableau')) renderDashboard();
+  else if (currentTab.includes('Documents')) renderDocuments();
+  else if (currentTab.includes('Historique')) renderHistorique();
+}
+
+function renderDashboard() {
+  if (!currentAffaire) {
+    document.getElementById('docTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center">Sélectionnez une affaire</td></tr>';
+    return;
+  }
+
+  const docs = Object.values(currentDocs).map(d => typeof d === 'string' ? JSON.parse(d) : d);
+  let html = '', totalH = 0, totalReal = 0, avgProgress = 0;
+
+  docs.forEach(doc => {
+    totalH += doc.heuresPrevues || 0;
+    totalReal += doc.heuresRéelles || 0;
+    avgProgress += doc.avancement || 0;
+    html += `<tr>
+      <td>${doc.num}</td>
+      <td>${doc.title}</td>
+      <td>${doc.heuresPrevues}h</td>
+      <td>${doc.heuresRéelles}h</td>
+      <td><strong>${doc.avancement}%</strong></td>
+      <td><span class="badge badge-green">${doc.statut}</span></td>
+      <td><button class="btn btn-outline" onclick="updateDocProgress('${doc.num}')">⏱️</button></td>
+    </tr>`;
+  });
+
+  document.getElementById('docTableBody').innerHTML = html || '<tr><td colspan="7">Aucun document</td></tr>';
+
+  const kpi = `
+    <div class="kpi"><div class="kpi-label">Documents</div><div class="kpi-value">${docs.length}</div></div>
+    <div class="kpi" style="border-left-color:#E8500A"><div class="kpi-label">Avancement</div><div class="kpi-value">${docs.length ? Math.round(avgProgress / docs.length) : 0}%</div></div>
+    <div class="kpi"><div class="kpi-label">H. totales</div><div class="kpi-value">${totalH}h</div></div>
+    <div class="kpi"><div class="kpi-label">H. travaillées</div><div class="kpi-value">${totalReal}h</div></div>
+  `;
+  document.getElementById('kpiRow').innerHTML = kpi;
+}
+
+function renderDocuments() {
+  if (!currentAffaire) {
+    document.getElementById('docEditTableBody').innerHTML = '<tr><td colspan="7">Sélectionnez une affaire</td></tr>';
+    return;
+  }
+
+  let html = '';
+  Object.values(currentDocs).forEach(d => {
+    const doc = typeof d === 'string' ? JSON.parse(d) : d;
+    html += `<tr>
+      <td>${doc.num}</td>
+      <td>${doc.title}</td>
+      <td>${doc.heuresPrevues}</td>
+      <td>${doc.heuresRéelles}</td>
+      <td>${doc.avancement}%</td>
+      <td>${doc.statut}</td>
+      <td>
+        <button class="btn btn-outline" onclick="updateDocProgress('${doc.num}')">⏱️</button>
+      </td>
+    </tr>`;
+  });
+
+  document.getElementById('docEditTableBody').innerHTML = html || '<tr><td colspan="7">Aucun document</td></tr>';
+}
+
+function renderHistorique() {
+  if (!currentAffaire) {
+    document.getElementById('historyContent').innerHTML = '<p>Sélectionnez une affaire</p>';
+    return;
+  }
+
+  let allHistory = [];
+  Object.values(currentDocs).forEach(d => {
+    const doc = typeof d === 'string' ? JSON.parse(d) : d;
+    (doc.historique || []).forEach(h => {
+      allHistory.push({ ...h, doc: doc.num });
+    });
+  });
+
+  allHistory.reverse();
+
+  let html = '';
+  allHistory.forEach(h => {
+    html += `
+      <div style="padding:12px;border-left:3px solid #003B71;margin-bottom:12px;background:#F9FAFB;border-radius:4px">
+        <div style="font-weight:600">${h.doc}</div>
+        <div style="font-size:11px;color:#6B7280">${new Date(h.timestamp).toLocaleString('fr-FR')}</div>
+        <div style="margin-top:6px">${h.action}</div>
+        <div style="font-size:11px;color:#E8500A;margin-top:4px">par ${h.auteur}</div>
+      </div>
+    `;
+  });
+
+  document.getElementById('historyContent').innerHTML = html || '<p>Aucun historique</p>';
+}
+
+// UTILS
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+</script>
+
+</body>
+</html>
