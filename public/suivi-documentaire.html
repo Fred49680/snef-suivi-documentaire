@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNEF – Suivi Documentaire Études</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --snef-blue: #003B71;
+    --snef-orange: #E8500A;
+    --snef-light: #F4F7FB;
+    --snef-gray: #6B7280;
+    --snef-border: #D1D5DB;
+    --green: #16A34A;
+    --yellow: #CA8A04;
+    --red: #DC2626;
+    --white: #FFFFFF;
+    --radius: 8px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--snef-light); color: #1F2937; font-size: 14px; }
+
+  header {
+    background: var(--snef-blue);
+    color: #fff;
+    padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    position: sticky; top: 0; z-index: 100;
+  }
+  header .logo { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+  header .logo span { color: var(--snef-orange); }
+  header .auth-area { display: flex; align-items: center; gap: 12px; }
+  header .user-badge { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 14px; font-size: 13px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .18s; }
+  .btn-primary { background: var(--snef-orange); color: #fff; }
+  .btn-primary:hover { background: #c94008; }
+  .btn-secondary { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.25); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-green:hover { background: #15803d; }
+  .btn-outline { background: transparent; color: var(--snef-blue); border: 1.5px solid var(--snef-blue); }
+  .btn-outline:hover { background: var(--snef-blue); color: #fff; }
+
+  .nav-tabs { background: #fff; border-bottom: 2px solid var(--snef-border); padding: 0 24px; display: flex; }
+  .nav-tab { padding: 14px 22px; cursor: pointer; font-weight: 600; font-size: 13px; color: var(--snef-gray); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .15s; }
+  .nav-tab:hover { color: var(--snef-blue); }
+  .nav-tab.active { color: var(--snef-blue); border-bottom-color: var(--snef-orange); }
+
+  main { padding: 24px; max-width: 1600px; margin: 0 auto; }
+  .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
+  .card-title { font-size: 15px; font-weight: 700; color: var(--snef-blue); margin-bottom: 16px; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .kpi { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 20px; border-left: 4px solid var(--snef-blue); }
+  .kpi-label { font-size: 11px; color: var(--snef-gray); text-transform: uppercase; }
+  .kpi-value { font-size: 26px; font-weight: 700; color: var(--snef-blue); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: var(--snef-blue); color: #fff; padding: 9px 10px; text-align: left; font-weight: 600; }
+  tbody tr { border-bottom: 1px solid var(--snef-border); }
+  tbody tr:hover { background: #F0F4FA; }
+  tbody td { padding: 8px 10px; }
+
+  .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+  .modal.open { display: flex; }
+  .modal-content { background: #fff; border-radius: var(--radius); padding: 20px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--snef-blue); }
+  .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid var(--snef-border); border-radius: var(--radius); font-size: 13px; }
+
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--snef-blue); color: #fff; padding: 14px 20px; border-radius: var(--radius); box-shadow: var(--shadow); max-width: 400px; animation: slideIn .3s; }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+  @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .hidden { display: none !important; }
+  .loading { opacity: 0.6; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SNE<span>F</span> – Suivi Documentaire</div>
+  <div class="auth-area">
+    <div class="user-badge" id="userBadge">👤 Non authentifié</div>
+    <button class="btn btn-secondary" id="authBtn" onclick="openAuthModal()">Se connecter</button>
+  </div>
+</header>
+
+<nav class="nav-tabs">
+  <div class="nav-tab active" onclick="showTab('dashboard')">📊 Tableau de bord</div>
+  <div class="nav-tab" onclick="showTab('project')">🏢 Projet</div>
+  <div class="nav-tab" onclick="showTab('documents')">📄 Documents</div>
+  <div class="nav-tab" onclick="showTab('observations')">📝 Observations</div>
+</nav>
+
+<main>
+  <!-- Dashboard Tab -->
+  <div id="dashboard" class="tab-content">
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Documents en cours</div>
+        <div class="kpi-value" id="kpiDocs">-</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Observations</div>
+        <div class="kpi-value" id="kpiObs">-</div>
+      </div>
+      <div class="kpi orange">
+        <div class="kpi-label">Retards</div>
+        <div class="kpi-value" id="kpiLate">-</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Tab -->
+  <div id="project" class="tab-content hidden">
+    <div class="card">
+      <div class="card-title">Informations du projet</div>
+      <form onsubmit="saveProject(event)">
+        <div class="form-group">
+          <label>Nom du projet</label>
+          <input type="text" id="projectName" required>
+        </div>
+        <div class="form-group">
+          <label>Référence</label>
+          <input type="text" id="projectRef">
+        </div>
+        <div class="form-group">
+          <label>Numéro de compte</label>
+          <input type="text" id="accountNumber">
+        </div>
+        <div class="form-group">
+          <label>Responsable</label>
+          <input type="text" id="manager">
+        </div>
+        <div class="form-group">
+          <label>Heures globales</label>
+          <input type="number" id="globalHours">
+        </div>
+        <div class="form-group">
+          <label>Client</label>
+          <input type="text" id="clientName">
+        </div>
+        <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Documents Tab -->
+  <div id="documents" class="tab-content hidden">
+    <div class="card">
+      <div class="card-title">Documents</div>
+      <button class="btn btn-primary" onclick="openAddDocModal()">➕ Ajouter un document</button>
+      <table id="docsTable">
+        <thead>
+          <tr>
+            <th>Indice</th>
+            <th>Titre</th>
+            <th>Rédacteur</th>
+            <th>Contrôleur</th>
+            <th>Vérificateur</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="docsList"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Observations Tab -->
+  <div id="observations" class="tab-content hidden">
+    <div class="card">
+      <div class="card-title">Observations</div>
+      <button class="btn btn-primary" onclick="openAddObsModal()">➕ Ajouter une observation</button>
+      <table id="obsTable">
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="obsList"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Auth Modal -->
+<div id="authModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-title">Authentification</div>
+    <form onsubmit="doLogin(event)">
+      <div class="form-group">
+        <label>Mot de passe</label>
+        <input type="password" id="loginPassword" required autofocus>
+      </div>
+      <button type="submit" class="btn btn-primary">Connexion</button>
+      <button type="button" class="btn btn-outline" onclick="closeAuthModal()">Annuler</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add/Edit Document Modal -->
+<div id="docModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-title" id="docModalTitle">Ajouter un document</div>
+    <form onsubmit="saveDocument(event)">
+      <div class="form-group">
+        <label>Indice</label>
+        <input type="text" id="docIndice" required>
+      </div>
+      <div class="form-group">
+        <label>Titre</label>
+        <input type="text" id="docTitle" required>
+      </div>
+      <div class="form-group">
+        <label>Rédacteur</label>
+        <input type="text" id="docRedacteur">
+      </div>
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+      <button type="button" class="btn btn-outline" onclick="closeDocModal()">Annuler</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Observation Modal -->
+<div id="obsModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-title">Ajouter une observation</div>
+    <form onsubmit="saveObservation(event)">
+      <div class="form-group">
+        <label>Document</label>
+        <select id="obsDocument" required></select>
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <input type="text" id="obsType" required>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="obsDescription" rows="4"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+      <button type="button" class="btn btn-outline" onclick="closeObsModal()">Annuler</button>
+    </form>
+  </div>
+</div>
+
+<script>
+const API_URL = 'http://localhost:3000/api';
+let state = {
+  authenticated: false,
+  project: {},
+  documents: [],
+  observations: [],
+  currentUser: null
+};
+
+// Initialiser l'app
+async function init() {
+  await loadProject();
+  await loadDocuments();
+  await loadObservations();
+  updateDashboard();
+}
+
+// Charger le projet
+async function loadProject() {
+  try {
+    const res = await fetch(`${API_URL}/project`);
+    if (res.ok) {
+      state.project = await res.json();
+      populateProjectForm();
+    }
+  } catch (err) {
+    console.error('Erreur chargement projet:', err);
+  }
+}
+
+// Charger les documents
+async function loadDocuments() {
+  try {
+    const res = await fetch(`${API_URL}/documents`);
+    if (res.ok) {
+      state.documents = await res.json();
+      renderDocuments();
+    }
+  } catch (err) {
+    console.error('Erreur chargement documents:', err);
+  }
+}
+
+// Charger les observations
+async function loadObservations() {
+  try {
+    const res = await fetch(`${API_URL}/observations`);
+    if (res.ok) {
+      state.observations = await res.json();
+      renderObservations();
+    }
+  } catch (err) {
+    console.error('Erreur chargement observations:', err);
+  }
+}
+
+// Sauvegarder le projet
+async function saveProject(e) {
+  e.preventDefault();
+  const project = {
+    name: document.getElementById('projectName').value,
+    ref: document.getElementById('projectRef').value,
+    accountNumber: document.getElementById('accountNumber').value,
+    manager: document.getElementById('manager').value,
+    globalHours: document.getElementById('globalHours').value,
+    clientName: document.getElementById('clientName').value
+  };
+
+  try {
+    const res = await fetch(`${API_URL}/project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(project)
+    });
+    if (res.ok) {
+      showToast('Projet sauvegardé ✅');
+      state.project = await res.json();
+    }
+  } catch (err) {
+    showToast('Erreur: ' + err.message, 'error');
+  }
+}
+
+// Sauvegarder un document
+async function saveDocument(e) {
+  e.preventDefault();
+  const doc = {
+    indice: document.getElementById('docIndice').value,
+    title: document.getElementById('docTitle').value,
+    redacteur: document.getElementById('docRedacteur').value,
+    project_id: 1
+  };
+
+  try {
+    const res = await fetch(`${API_URL}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(doc)
+    });
+    if (res.ok) {
+      showToast('Document ajouté ✅');
+      await loadDocuments();
+      closeDocModal();
+    }
+  } catch (err) {
+    showToast('Erreur: ' + err.message, 'error');
+  }
+}
+
+// Sauvegarder une observation
+async function saveObservation(e) {
+  e.preventDefault();
+  const obs = {
+    document_id: parseInt(document.getElementById('obsDocument').value),
+    type: document.getElementById('obsType').value,
+    description: document.getElementById('obsDescription').value,
+    project_id: 1
+  };
+
+  try {
+    const res = await fetch(`${API_URL}/observations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(obs)
+    });
+    if (res.ok) {
+      showToast('Observation ajoutée ✅');
+      await loadObservations();
+      closeObsModal();
+    }
+  } catch (err) {
+    showToast('Erreur: ' + err.message, 'error');
+  }
+}
+
+// Supprimer un document
+async function deleteDocument(id) {
+  if (!confirm('Supprimer ce document?')) return;
+  try {
+    const res = await fetch(`${API_URL}/documents/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      showToast('Document supprimé ✅');
+      await loadDocuments();
+    }
+  } catch (err) {
+    showToast('Erreur: ' + err.message, 'error');
+  }
+}
+
+// Supprimer une observation
+async function deleteObservation(id) {
+  if (!confirm('Supprimer cette observation?')) return;
+  try {
+    const res = await fetch(`${API_URL}/observations/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      showToast('Observation supprimée ✅');
+      await loadObservations();
+    }
+  } catch (err) {
+    showToast('Erreur: ' + err.message, 'error');
+  }
+}
+
+// Se connecter
+async function doLogin(e) {
+  e.preventDefault();
+  const password = document.getElementById('loginPassword').value;
+  try {
+    const res = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    if (res.ok) {
+      state.authenticated = true;
+      state.currentUser = 'Utilisateur';
+      document.getElementById('userBadge').textContent = '✅ Connecté';
+      document.getElementById('authBtn').textContent = 'Déconnexion';
+      closeAuthModal();
+      showToast('Connecté ✅');
+    } else {
+      showToast('Mot de passe incorrect', 'error');
+    }
+  } catch (err) {
+    showToast('Erreur: ' + err.message, 'error');
+  }
+}
+
+// Rendu des documents
+function renderDocuments() {
+  const tbody = document.getElementById('docsList');
+  tbody.innerHTML = state.documents.map(doc => `
+    <tr>
+      <td>${doc.indice || '-'}</td>
+      <td>${doc.title}</td>
+      <td>${doc.redacteur || '-'}</td>
+      <td>${doc.controleur || '-'}</td>
+      <td>${doc.verificateur || '-'}</td>
+      <td>
+        <button class="btn btn-sm btn-outline" onclick="editDocument(${doc.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteDocument(${doc.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Rendu des observations
+function renderObservations() {
+  const tbody = document.getElementById('obsList');
+  tbody.innerHTML = state.observations.map(obs => `
+    <tr>
+      <td>${obs.document_id}</td>
+      <td>${obs.type}</td>
+      <td>${obs.description}</td>
+      <td>${obs.status || 'Ouvert'}</td>
+      <td>
+        <button class="btn btn-sm btn-danger" onclick="deleteObservation(${obs.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Mettre à jour le dashboard
+function updateDashboard() {
+  document.getElementById('kpiDocs').textContent = state.documents.length;
+  document.getElementById('kpiObs').textContent = state.observations.length;
+  document.getElementById('kpiLate').textContent = '0';
+}
+
+// Remplir le formulaire projet
+function populateProjectForm() {
+  document.getElementById('projectName').value = state.project.name || '';
+  document.getElementById('projectRef').value = state.project.ref || '';
+  document.getElementById('accountNumber').value = state.project.accountNumber || '';
+  document.getElementById('manager').value = state.project.manager || '';
+  document.getElementById('globalHours').value = state.project.globalHours || '';
+  document.getElementById('clientName').value = state.project.clientName || '';
+}
+
+// UI Helpers
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.getElementById(name).classList.remove('hidden');
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function openAuthModal() { document.getElementById('authModal').classList.add('open'); }
+function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
+function openAddDocModal() { document.getElementById('docModalTitle').textContent = 'Ajouter un document'; openDocModal(); }
+function openDocModal() { document.getElementById('docModal').classList.add('open'); }
+function closeDocModal() { document.getElementById('docModal').classList.remove('open'); }
+function openAddObsModal() { document.getElementById('obsModal').classList.add('open'); }
+function closeObsModal() { document.getElementById('obsModal').classList.remove('open'); }
+
+function showToast(msg, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// Lancer l'app
+init();
+</script>
+
+</body>
+</html>

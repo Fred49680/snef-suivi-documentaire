@@ -1,0 +1,15 @@
+INFO :
+
+Un badge en haut à droite (🟡/🟢) permet de connecter le fichier de données partagé sur le réseau — un clic dessus propose de créer ce fichier (première personne) ou de sélectionner celui déjà créé (les suivants).
+Toutes les lectures/écritures passent maintenant par ce fichier JSON réseau au lieu du localStorage, avec localStorage gardé en filet de sécurité.
+Toutes les 10 secondes, l'appli relit le fichier partagé et se met à jour automatiquement si un collègue a modifié quelque chose.
+Fonctionne nativement dans Edge ou Chrome (l'API utilisée n'existe pas sur Firefox/Safari) — sans rien installer.
+
+MISE EN ROUTE :
+
+Placez suivi-documentaire.html dans un dossier réseau partagé (\\SERVEUR\SuiviDoc\) accessible en lecture/écriture à toute l'équipe.
+La première personne l'ouvre depuis ce chemin, clique sur le badge et crée le fichier snef_doc_data.json au même endroit.
+Les autres l'ouvrent aussi depuis ce chemin réseau, cliquent sur le badge et sélectionnent ce même fichier .json.
+Chacun devra reconfirmer l'accès au fichier de temps en temps (le navigateur redemande parfois la permission après un redémarrage) — un simple clic sur le badge suffit.
+
+Rappel important : en cas de modifications strictement simultanées par deux personnes, c'est le dernier enregistrement qui l'emporte (pas de fusion automatique).

@@ -3,11 +3,11 @@ import { supabase } from '../supabaseClient.js';
 
 const router = express.Router();
 
-// Récupérer tous les documents
+// Récupérer toutes les observations
 router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('documents')
+      .from('observations')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -18,27 +18,11 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Récupérer un document
-router.get('/:id', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
-
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Créer un document
+// Créer une observation
 router.post('/', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('documents')
+      .from('observations')
       .insert([req.body])
       .select();
 
@@ -49,27 +33,11 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Mettre à jour un document
-router.put('/:id', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('documents')
-      .update(req.body)
-      .eq('id', req.params.id)
-      .select();
-
-    if (error) throw error;
-    res.json(data[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Supprimer un document
+// Supprimer une observation
 router.delete('/:id', async (req, res) => {
   try {
     const { error } = await supabase
-      .from('documents')
+      .from('observations')
       .delete()
       .eq('id', req.params.id);
 
